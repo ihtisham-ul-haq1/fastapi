@@ -1,8 +1,6 @@
 fastapi
 mangum
-numpy
+
 pandas
-scikit-learn
+
 joblib
-opencv-python-headless
-pydantic
