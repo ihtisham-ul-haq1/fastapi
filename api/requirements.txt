@@ -4,6 +4,5 @@ numpy
 pandas
 scikit-learn
 joblib
-fer
 opencv-python-headless
 pydantic

@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 import joblib
 import pandas as pd
-from fer import FER
+# from fer import FER
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -18,7 +18,7 @@ model = joblib.load("model.pkl")
 le = joblib.load("label_encoder.pkl")
 
 # Initialize FER detector
-detector = FER(mtcnn=True)
+# detector = FER(mtcnn=True)
 
 # ✅ Define input model
 class BodyInput(BaseModel):
@@ -61,24 +61,24 @@ def predict_measurements(data: BodyInput):
         }
     }
 
-
-@app.post("/predict_emotion")
-async def predict_emotion(file: UploadFile = File(...)):
-    # Read image as array
-    image = np.frombuffer(await file.read(), np.uint8)
-    image = cv2.imdecode(image, cv2.IMREAD_COLOR)
-
-    result = detector.detect_emotions(image)
-    if not result:
-        return {"error": "No face detected"}
-
-    emotions = result[0]["emotions"]
-    dominant = max(emotions, key=emotions.get)
-
-    return {
-        "dominant_emotion": dominant,
-        "emotions": emotions
-    }
+#
+# @app.post("/predict_emotion")
+# async def predict_emotion(file: UploadFile = File(...)):
+#     # Read image as array
+#     image = np.frombuffer(await file.read(), np.uint8)
+#     image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+#
+#     result = detector.detect_emotions(image)
+#     if not result:
+#         return {"error": "No face detected"}
+#
+#     emotions = result[0]["emotions"]
+#     dominant = max(emotions, key=emotions.get)
+#
+#     return {
+#         "dominant_emotion": dominant,
+#         "emotions": emotions
+#     }
 
 
 # Required for Vercel
