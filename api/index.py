@@ -27,7 +27,7 @@ class BodyInput(BaseModel):
     weight: float
 
 
-@app.get("/")
+@app.get("")
 def home():
     return JSONResponse({"message": "Hello from FastAPI on Vercel!"})
 
