@@ -5,8 +5,9 @@ import pandas as pd
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-import cv2
 from PIL import Image
+import onnxruntime as ort
+import mediapipe as mp
 import io
 sys.dont_write_bytecode = True
 
@@ -59,48 +60,24 @@ async def predict_measurements(data: BodyInput):
             "shoulder": round(prediction[3], 1)
         }
     }
+mp_face = mp.solutions.face_detection
+face_detection = mp_face.FaceDetection(model_selection=0, min_detection_confidence=0.5)
 
-
-
-app = FastAPI(title="Lightweight Gender Detection API")
-
-# Load pretrained OpenCV models
-# Download these files from OpenCV repo:
-# https://github.com/opencv/opencv/blob/master/samples/dnn/face_detector/deploy.prototxt
-# https://github.com/opencv/opencv_3rdparty/blob/dnn_samples_face_detector/res10_300x300_ssd_iter_140000.caffemodel
-# https://github.com/opencv/opencv/blob/master/samples/dnn/face_detector/gender_net.caffemodel
-# https://github.com/opencv/opencv/blob/master/samples/dnn/face_detector/deploy_gender.prototxt
-
-FACE_PROTO = "deploy.prototxt"
-FACE_MODEL = "res10_300x300_ssd_iter_140000.caffemodel"
-GENDER_PROTO = "deploy_gender.prototxt"
-GENDER_MODEL = "gender_net.caffemodel"
+# Load ONNX gender model
+# You need a small gender classifier in ONNX format
+# Input: 64x64 RGB image normalized [0,1]
+# Output: [male_prob, female_prob]
+onnx_session = ort.InferenceSession("gender_model.onnx")
 GENDER_LIST = ["male", "female"]
 
-face_net = cv2.dnn.readNet(FACE_MODEL, FACE_PROTO)
-gender_net = cv2.dnn.readNet(GENDER_MODEL, GENDER_PROTO)
-
-def detect_face(image):
-    """Detect faces and return bounding boxes"""
-    h, w = image.shape[:2]
-    blob = cv2.dnn.blobFromImage(image, 1.0, (300, 300), [104, 117, 123], False, False)
-    face_net.setInput(blob)
-    detections = face_net.forward()
-    faces = []
-    for i in range(detections.shape[2]):
-        confidence = detections[0, 0, i, 2]
-        if confidence > 0.6:
-            box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
-            faces.append(box.astype(int))
-    return faces
-
-def predict_gender(face_img):
-    """Predict gender from a face image"""
-    blob = cv2.dnn.blobFromImage(face_img, 1.0, (227, 227), [78.4263377603, 87.7689143744, 114.895847746], swapRB=False)
-    gender_net.setInput(blob)
-    preds = gender_net.forward()
-    gender = GENDER_LIST[preds[0].argmax()]
-    return gender
+def preprocess_face(face_img: np.ndarray):
+    """Resize and normalize the face image for ONNX model"""
+    face_img = Image.fromarray(face_img)
+    face_img = face_img.resize((64, 64))
+    face_array = np.array(face_img).astype(np.float32) / 255.0
+    face_array = np.transpose(face_array, (2, 0, 1))  # HWC → CHW if model needs
+    face_array = np.expand_dims(face_array, axis=0)
+    return face_array
 
 @app.post("/predict_gender")
 async def predict_gender_api(file: UploadFile = File(...)):
@@ -108,23 +85,33 @@ async def predict_gender_api(file: UploadFile = File(...)):
         # Read image
         image_bytes = await file.read()
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        image = np.array(image)
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        image_np = np.array(image)
 
-        faces = detect_face(image)
-        if not faces:
+        # Detect faces
+        results = face_detection.process(image_np)
+        if not results.detections:
             return JSONResponse({"error": "No face detected"}, status_code=400)
 
-        # Only predict the first detected face
-        x1, y1, x2, y2 = faces[0]
-        face_img = image[y1:y2, x1:x2]
-        gender = predict_gender(face_img)
+        # Use first detected face
+        detection = results.detections[0]
+        bboxC = detection.location_data.relative_bounding_box
+        h, w, _ = image_np.shape
+        x1 = int(bboxC.xmin * w)
+        y1 = int(bboxC.ymin * h)
+        x2 = x1 + int(bboxC.width * w)
+        y2 = y1 + int(bboxC.height * h)
+
+        face_img = image_np[y1:y2, x1:x2]
+
+        # Preprocess and predict
+        input_tensor = preprocess_face(face_img)
+        pred = onnx_session.run(None, {onnx_session.get_inputs()[0].name: input_tensor})[0]
+        gender = GENDER_LIST[int(np.argmax(pred))]
 
         return JSONResponse({"gender": gender})
 
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
-
 
 # @app.post("/predict_emotion")
 # async def predict_emotion(file: UploadFile = File(...)):
