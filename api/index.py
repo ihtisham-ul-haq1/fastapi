@@ -27,13 +27,13 @@ class BodyInput(BaseModel):
     weight: float
 
 
-@app.get("")
-def home():
-    return JSONResponse({"message": "Hello from FastAPI on Vercel!"})
+@app.get("/")
+async def home():
+    return JSONResponse({"message": "Hello from FastAPI on Render!"})
 
 
 @app.post("/predict")
-def predict_measurements(data: BodyInput):
+async def predict_measurements(data: BodyInput):
     """
     Predict body measurements based on height, weight, and sex.
     """

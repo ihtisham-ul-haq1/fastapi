@@ -1,6 +1,4 @@
 fastapi
-mangum
-
 pandas
-
 joblib
+uvicorn[standard]
