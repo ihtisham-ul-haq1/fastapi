@@ -4,6 +4,6 @@ joblib
 uvicorn[standard]
 numpy
 scikit-learn
-mediapipe==0.12.3
+opencv-python-headless
 pillow
 onnxruntime
