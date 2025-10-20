@@ -10,10 +10,17 @@ import cv2
 import os
 import io
 from PIL import Image
+from fastapi.middleware.cors import CORSMiddleware
+
 sys.dont_write_bytecode = True
-
-
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Load pretrained model and label encoder
 model = joblib.load("model.pkl")
