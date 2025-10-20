@@ -76,7 +76,3 @@ async def predict_measurements(data: BodyInput):
 #         "dominant_emotion": dominant,
 #         "emotions": emotions
 #     }
-
-
-# Required for Vercel
-handler = Mangum(app)
