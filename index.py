@@ -1,13 +1,10 @@
 import sys
 import numpy as np
-import cv2
 import joblib
 import pandas as pd
-# from fer import FER
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from mangum import Mangum
 
 sys.dont_write_bytecode = True
 
