@@ -5,12 +5,13 @@ import pandas as pd
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from PIL import Image
 import onnxruntime as ort
 import cv2
 import os
 import io
+from PIL import Image
 sys.dont_write_bytecode = True
+
 
 app = FastAPI()
 
@@ -81,8 +82,13 @@ def preprocess_image(image_bytes: bytes):
 def predict_gender_age(image_tensor: np.ndarray):
     """Run ONNX model inference"""
     outputs = session.run(None, {input_name: image_tensor})
-    gender_probs, age = outputs[0][0], outputs[1][0]
-    gender = "Male" if gender_probs[0] > gender_probs[1] else "Female"
+    out = outputs[0][0]  # shape (3,)
+
+    # Gender
+    gender = "Male" if out[0] > out[1] else "Female"
+
+    # Age
+    age = int(out[2])
     return gender, int(age)
 
 # -------------------------------
@@ -91,17 +97,15 @@ def predict_gender_age(image_tensor: np.ndarray):
 @app.post("/predict_gender")
 async def predict(file: UploadFile = File(...)):
     try:
-        # Read image file
         image_bytes = await file.read()
         image_tensor = preprocess_image(image_bytes)
+        outputs = session.run(None, {input_name: image_tensor})
+        out = outputs[0][0]
+        print(outputs)
+        gender = "Male" if out[0] > out[1] else "Female"
+        age = float(out[2]) * 100
 
-        # Predict gender and age
-        gender, age = predict_gender_age(image_tensor)
-
-        return JSONResponse({
-            "gender": gender,
-            "age": age
-        })
+        return JSONResponse({"gender": gender})
 
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
