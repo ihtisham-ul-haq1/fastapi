@@ -4,3 +4,5 @@ joblib
 uvicorn[standard]
 numpy
 scikit-learn
+opencv-python-headless
+pillow
